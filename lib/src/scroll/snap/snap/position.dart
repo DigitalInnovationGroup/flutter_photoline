@@ -515,29 +515,40 @@ class ScrollSnapPosition extends ViewportOffset with ScrollMetrics implements Sc
       // When canRefresh is set, redirect overscroll below minScrollExtent
       // into the refresh pull indicator, and consume upward scroll to
       // reduce the pull before scrolling content.
-      if (holder.canRefresh && !holder.refreshing) {
+      if (holder.canRefresh) {
         final currentPull = holder.refreshPull.value;
 
         if (currentPull > 0 && delta > 0) {
-          // User is dragging up (increasing pixels) while refresh indicator
-          // is showing – consume the delta to reduce the pull first.
-          final consume = math.min(delta, currentPull);
-          holder.refreshPull.value = currentPull - consume;
-          newPixels = pixels + (delta - consume);
-          if ((newPixels - pixels).abs() < precisionErrorTolerance) {
+          // User is dragging/scrolling up while the refresh indicator is
+          // showing – consume the delta to reduce the pull first.
+          // This applies even during refreshing to prevent content from
+          // rendering on top of the refresh indicator.
+          if (!holder.refreshing) {
+            final consume = math.min(delta, currentPull);
+            holder.refreshPull.value = currentPull - consume;
+            newPixels = pixels + (delta - consume);
+            if ((newPixels - pixels).abs() < precisionErrorTolerance) {
+              return 0.0;
+            }
+            // Continue with the remaining delta for header/content.
+          } else {
+            // While refreshing, block upward scroll so content stays below
+            // the indicator — do not allow pixels to increase past current.
             return 0.0;
           }
-          // Continue with the remaining delta for header/content.
         } else if (delta < 0 && newPixels < min) {
-          // User is dragging down and the new position would go below min.
-          // Redirect the excess below min into the refresh pull.
-          final excess = min - newPixels; // How far below min
-          // Apply rubber-band friction.
-          final friction = (1.0 -
-                  (currentPull / (holder.refreshTriggerExtent * 3.0))
-                      .clamp(0.0, 0.8));
-          holder.refreshPull.value = currentPull + excess * friction;
-          // Clamp newPixels to min so position doesn't go below.
+          // User is dragging/flinging down below minScrollExtent.
+          if (!holder.refreshing) {
+            // Redirect the excess below min into the refresh pull with
+            // rubber-band friction: more pull → less effect.
+            final excess = min - newPixels;
+            final friction = (1.0 -
+                    (currentPull / (holder.refreshTriggerExtent * 3.0))
+                        .clamp(0.0, 0.8));
+            holder.refreshPull.value = currentPull + excess * friction;
+          }
+          // During refreshing, completely block any further expansion of the
+          // pull — clamp newPixels to min unconditionally.
           newPixels = min;
           if ((newPixels - pixels).abs() < precisionErrorTolerance) {
             return 0.0;

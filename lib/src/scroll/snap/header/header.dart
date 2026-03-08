@@ -55,6 +55,11 @@ class _ScrollSnapHeaderState extends State<ScrollSnapHeader>
   /// released without arming.
   late final AnimationController _collapseAnim;
 
+  /// Smoothly brings refreshPull down to [refreshTriggerExtent] after the
+  /// user over-pulled before release (avoids the instant jump to triggerExtent).
+  late final AnimationController _snapToTriggerAnim;
+  double _snapToTriggerFrom = 0.0;
+
   @override
   void initState() {
     super.initState();
@@ -71,6 +76,11 @@ class _ScrollSnapHeaderState extends State<ScrollSnapHeader>
       vsync: this,
       duration: const Duration(milliseconds: 300),
     )..addListener(_onCollapseTick);
+
+    _snapToTriggerAnim = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 250),
+    )..addListener(_onSnapToTriggerTick);
   }
 
   @override
@@ -85,6 +95,8 @@ class _ScrollSnapHeaderState extends State<ScrollSnapHeader>
     widget.controller.refreshPull.removeListener(_onRefreshPullChanged);
     _collapseAnim.removeListener(_onCollapseTick);
     _collapseAnim.dispose();
+    _snapToTriggerAnim.removeListener(_onSnapToTriggerTick);
+    _snapToTriggerAnim.dispose();
     _spinAnim.dispose();
     super.dispose();
   }
@@ -101,6 +113,15 @@ class _ScrollSnapHeaderState extends State<ScrollSnapHeader>
     _armed = pull >= widget.refreshTriggerExtent;
     if (_armed && !wasArmed) {
       unawaited(HapticFeedback.mediumImpact());
+    }
+    // If something external (e.g. ballistic setPixels) drained refreshPull to
+    // zero while the collapse animation is still running, stop the animation
+    // so its next tick doesn't write a stale non-zero value back.
+    if (pull <= 0.0 && _collapseAnim.isAnimating) {
+      _collapseAnim.stop();
+    }
+    if (pull <= 0.0 && _snapToTriggerAnim.isAnimating) {
+      _snapToTriggerAnim.stop();
     }
     setState(() {});
   }
@@ -124,6 +145,11 @@ class _ScrollSnapHeaderState extends State<ScrollSnapHeader>
   void _onVerticalDragStart(DragStartDetails details) {
     if (_refreshing) return;
     _pullingRefresh = false;
+
+    // Stop any in-progress collapse/snap animations so they don't compete
+    // with the new gesture and leave refreshPull in a frozen state.
+    if (_collapseAnim.isAnimating) _collapseAnim.stop();
+    if (_snapToTriggerAnim.isAnimating) _snapToTriggerAnim.stop();
 
     final sc = widget.controller.activeScrollController;
     if (sc == null || !sc.hasClients) return;
@@ -218,7 +244,9 @@ class _ScrollSnapHeaderState extends State<ScrollSnapHeader>
   double _collapseFrom = 0.0;
 
   void _collapseIndicator() {
-    _collapseFrom = _refreshPull;
+    // Always stop any competing animation first.
+    if (_snapToTriggerAnim.isAnimating) _snapToTriggerAnim.stop();
+    _collapseFrom = widget.controller.refreshPull.value;
     if (_collapseFrom <= 0.0) {
       widget.controller.refreshPull.value = 0.0;
       _armed = false;
@@ -229,20 +257,51 @@ class _ScrollSnapHeaderState extends State<ScrollSnapHeader>
   }
 
   void _onCollapseTick() {
+    // If the user grabbed and started pulling again, stop competing with them.
+    if (_pullingRefresh) {
+      _collapseAnim.stop();
+      return;
+    }
     final t = Curves.easeOut.transform(_collapseAnim.value);
-    widget.controller.refreshPull.value = _collapseFrom * (1.0 - t);
+    final computed = _collapseFrom * (1.0 - t);
+    // Never let the collapse animation set a value *higher* than what's
+    // already there — ballistic setPixels may have already reduced it further.
+    final current = widget.controller.refreshPull.value;
+    widget.controller.refreshPull.value = computed < current ? computed : current;
     _armed = false;
     if (_collapseAnim.isCompleted) {
       widget.controller.refreshPull.value = 0.0;
+      setState(() {});
     }
   }
 
   // ── Refresh flow ─────────────────────────────────────────────────────────
 
+  void _onSnapToTriggerTick() {
+    final trigger = widget.refreshTriggerExtent;
+    final t = Curves.easeOut.transform(_snapToTriggerAnim.value);
+    // Interpolate from _snapToTriggerFrom → trigger as t goes 0 → 1.
+    final value = _snapToTriggerFrom + (trigger - _snapToTriggerFrom) * t;
+    widget.controller.refreshPull.value = value;
+    if (_snapToTriggerAnim.isCompleted) {
+      widget.controller.refreshPull.value = trigger;
+    }
+  }
+
   Future<void> _doRefresh() async {
     _refreshing = true;
     widget.controller.refreshing = true;
-    widget.controller.refreshPull.value = widget.refreshTriggerExtent;
+
+    // Smoothly bring refreshPull down to triggerExtent instead of jumping.
+    final currentPull = widget.controller.refreshPull.value;
+    final trigger = widget.refreshTriggerExtent;
+    if (currentPull > trigger + 0.5) {
+      _snapToTriggerFrom = currentPull;
+      _snapToTriggerAnim.forward(from: 0.0);
+    } else if (currentPull != trigger) {
+      widget.controller.refreshPull.value = trigger;
+    }
+
     unawaited(_spinAnim.repeat());
 
     try {
@@ -287,6 +346,13 @@ class _ScrollSnapHeaderState extends State<ScrollSnapHeader>
   bool _onScrollNotification(ScrollNotification notification) {
     if (!_canRefresh || _refreshing) return false;
 
+    if (notification is ScrollStartNotification) {
+      // New scroll gesture started in content — stop any in-progress collapse
+      // so they don't compete and freeze the indicator.
+      if (_collapseAnim.isAnimating) _collapseAnim.stop();
+      if (_snapToTriggerAnim.isAnimating) _snapToTriggerAnim.stop();
+    }
+
     if (notification is ScrollEndNotification) {
       // User released the scroll. If we have accumulated refresh pull,
       // either trigger refresh or collapse.
@@ -294,6 +360,9 @@ class _ScrollSnapHeaderState extends State<ScrollSnapHeader>
         if (_armed && _canRefresh) {
           unawaited(_doRefresh());
         } else {
+          // Always start collapse. The tick uses `computed < current` so it
+          // never fights a ballistic drain — it just takes whichever value
+          // is smaller, keeping the animation smooth in all cases.
           _collapseIndicator();
         }
       }

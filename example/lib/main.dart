@@ -41,7 +41,7 @@ class MyApp extends StatelessWidget {
       },
       home: Material(
         child: const [
-          NestedScrollWidgetExample(),
+          NestedDemoScreen(),
           PhotolineTestWidget(),
           PhotolinePhotoWidget(),
           SnapExampleList(),

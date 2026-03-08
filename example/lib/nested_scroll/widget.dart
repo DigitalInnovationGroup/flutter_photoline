@@ -1,86 +1,56 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:photoline/library.dart';
+import 'package:photoline_example/nested_scroll/uris.dart';
 
-class _IconTile {
-  const _IconTile(this.icon, this.color);
+// ─────────────────────────────────────────────────────────────────────────────
+// Demo profile screen — matches the attached mockup
+// ─────────────────────────────────────────────────────────────────────────────
 
-  final IconData icon;
-  final Color color;
-}
-
-final List<_IconTile> _kTiles = () {
-  const icons = <IconData>[
-    Icons.star,
-    Icons.favorite,
-    Icons.bolt,
-    Icons.pets,
-    Icons.music_note,
-    Icons.sunny,
-    Icons.water_drop,
-    Icons.rocket_launch,
-    Icons.local_fire_department,
-    Icons.forest,
-    Icons.diamond,
-    Icons.anchor,
-    Icons.bug_report,
-    Icons.cake,
-    Icons.extension,
-    Icons.fingerprint,
-    Icons.gavel,
-    Icons.headphones,
-    Icons.icecream,
-    Icons.key,
-  ];
-  final rng = Random(42);
-  return List.generate(icons.length, (i) {
-    final color = Color.fromARGB(
-      255,
-      50 + rng.nextInt(180),
-      50 + rng.nextInt(180),
-      50 + rng.nextInt(180),
-    );
-    return _IconTile(icons[i], color);
-  });
-}();
-
-class NestedScrollWidgetExample extends StatefulWidget {
-  const NestedScrollWidgetExample({super.key});
+class NestedDemoScreen extends StatefulWidget {
+  const NestedDemoScreen({super.key});
 
   @override
-  State<NestedScrollWidgetExample> createState() => _State();
+  State<NestedDemoScreen> createState() => _NestedDemoScreenState();
 }
 
-class _State extends State<NestedScrollWidgetExample> {
+class _NestedDemoScreenState extends State<NestedDemoScreen> {
+  // ── Header / tab controllers ─────────────────────────────────────────────
+
+  final _headerController = ScrollSnapHeaderController();
+
+  Future<void> _onRefresh() async {
+    debugPrint('🔄 Pull-to-refresh triggered');
+    await Future.delayed(const Duration(seconds: 2));
+    debugPrint('✅ Refresh complete');
+  }
+
+  late final ScrollSnapController _galleryController = ScrollSnapController(
+    headerHolder: _headerController,
+    onRefresh: _onRefresh,
+  );
+
+  late final ScrollSnapController _paramsController = ScrollSnapController(
+    headerHolder: _headerController,
+    onRefresh: _onRefresh,
+  );
+
+  late final ScrollSnapController _reviewsController = ScrollSnapController(
+    headerHolder: _headerController,
+    onRefresh: _onRefresh,
+  );
+
+  late final List<ScrollSnapController> _controllers = [
+    _galleryController,
+    _paramsController,
+    _reviewsController,
+  ];
+
   late final PageController _pageController;
   int _currentPage = 0;
 
-  final _headerController = ScrollSnapHeaderController(
-    initialState: ScrollSnapHeaderInitialState.collapsed,
-  );
-
-  late final ScrollSnapController _c0 = ScrollSnapController(
-    headerHolder: _headerController,
-    snapBuilder: (i, _) => i < 30 ? 60.0 : null,
-    onRefresh: () => _onRefresh('Tab 0'),
-  );
-
-  late final ScrollSnapController _c1 = ScrollSnapController(
-    headerHolder: _headerController,
-    snapBuilder: (i, _) => i < 30 ? 60.0 : null,
-    onRefresh: () => _onRefresh('Tab 1'),
-  );
-
-  Future<void> _onRefresh(String tab) async {
-    debugPrint('🔄 Pull-to-refresh triggered on $tab');
-    await Future.delayed(const Duration(seconds: 2));
-    debugPrint('✅ Refresh complete on $tab');
-  }
-
-  late final List<ScrollSnapController> _controllers = [_c0, _c1];
-
   ScrollSnapController get _activeController => _controllers[_currentPage];
+
+  // ── Lifecycle ────────────────────────────────────────────────────────────
 
   @override
   void initState() {
@@ -99,17 +69,20 @@ class _State extends State<NestedScrollWidgetExample> {
   @override
   void dispose() {
     _pageController.dispose();
-    _c0.dispose();
-    _c1.dispose();
+    _galleryController.dispose();
+    _paramsController.dispose();
+    _reviewsController.dispose();
     super.dispose();
   }
+
+  // ── Build ────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
     return ScrollSnapHeader(
       controller: _headerController,
       onRefresh: _activeController.onRefresh,
-      header: _Header(
+      header: _ProfileHeader(
         controller: _headerController,
         currentPage: _currentPage,
         onTabTap: (i) => _pageController.animateToPage(
@@ -121,18 +94,21 @@ class _State extends State<NestedScrollWidgetExample> {
       content: PageView(
         controller: _pageController,
         children: [
-          _Page(controller: _c0, color: Colors.blue),
-          _Page(controller: _c1, color: Colors.green),
+          _GalleryPage(controller: _galleryController),
+          _ParamsPage(controller: _paramsController),
+          _ReviewsPage(controller: _reviewsController),
         ],
       ),
     );
   }
 }
 
-// ── Header ────────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// HEADER — background photo, avatar, name, social icons, tabs
+// ═══════════════════════════════════════════════════════════════════════════════
 
-class _Header extends StatefulWidget {
-  const _Header({
+class _ProfileHeader extends StatelessWidget {
+  const _ProfileHeader({
     required this.controller,
     required this.currentPage,
     required this.onTabTap,
@@ -142,146 +118,388 @@ class _Header extends StatefulWidget {
   final int currentPage;
   final ValueChanged<int> onTabTap;
 
-  @override
-  State<_Header> createState() => _HeaderState();
-}
-
-class _HeaderState extends State<_Header> {
-  int _counter = 0;
+  static const _tabs = ['Галерея', 'Параметры', 'Отзывы'];
 
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: widget.controller.height,
-      builder: (context, _) => ColoredBox(
-        color: Colors.blueGrey.shade900,
-        child: SafeArea(
-          bottom: false,
-          child: SizedBox(
-            height: widget.controller.height.value,
-            child: Column(
-              children: [
-                // ── Counter button ──
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  child: Row(
+      listenable: controller.height,
+      builder: (context, _) {
+        final h = controller.height.value;
+        return SizedBox(
+          height: h,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // ── Background photo ──
+              Positioned.fill(
+                bottom: 100,
+                child: Image.network(demoUris.first, fit: BoxFit.cover),
+              ),
+
+              // ── Gradient overlay ──
+              Positioned.fill(
+                bottom: 100,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.bottomCenter,
+                      end: Alignment.topCenter,
+                      colors: [
+                        Colors.black.withValues(alpha: 0.7),
+                        Colors.transparent,
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+
+              // ── Name / age / socials ──
+              Positioned(
+                left: 16,
+                right: 16,
+                bottom: 110,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // badge
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.deepPurple,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.workspace_premium,
+                            color: Colors.amber,
+                            size: 14,
+                          ),
+                          SizedBox(width: 4),
+                          Text(
+                            'Амбассадор',
+                            style: TextStyle(color: Colors.white, fontSize: 11),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    // name
+                    const Row(
+                      children: [
+                        Text(
+                          'Irina Repei',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 26,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(width: 6),
+                        Icon(
+                          Icons.verified,
+                          color: Colors.greenAccent,
+                          size: 20,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    // age + socials
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.location_on,
+                          color: Colors.pinkAccent,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 2),
+                        const Text(
+                          '24 года',
+                          style: TextStyle(color: Colors.white70, fontSize: 14),
+                        ),
+                        const Spacer(),
+                        for (final icon in [
+                          Icons.camera_alt,
+                          Icons.facebook,
+                          Icons.music_note,
+                          Icons.play_circle_fill,
+                        ]) ...[
+                          const SizedBox(width: 10),
+                          Icon(icon, color: Colors.white, size: 20),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              // ── White card area (bio + tabs) ──
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: DecoratedBox(
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(20),
+                      topRight: Radius.circular(20),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      ElevatedButton.icon(
-                        onPressed: () => setState(() => _counter++),
-                        icon: const Icon(Icons.add),
-                        label: Text('Clicks: $_counter'),
+                      const Padding(
+                        padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+                        child: Text(
+                          'Model, actress, blogger and dancer.\nDM for cooperation.',
+                          style: TextStyle(fontSize: 14, color: Colors.black87),
+                        ),
+                      ),
+                      // ── Tabs ──
+                      Row(
+                        children: List.generate(_tabs.length, (i) {
+                          final sel = i == currentPage;
+                          return Expanded(
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () => onTabTap(i),
+                              child: Container(
+                                height: 42,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  border: Border(
+                                    bottom: BorderSide(
+                                      color: sel ? Colors.pinkAccent : Colors.transparent,
+                                      width: 2,
+                                    ),
+                                  ),
+                                ),
+                                child: Text(
+                                  _tabs[i],
+                                  style: TextStyle(
+                                    color: sel ? Colors.pinkAccent : Colors.grey,
+                                    fontWeight: sel ? FontWeight.bold : FontWeight.normal,
+                                    fontSize: 15,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        }),
                       ),
                     ],
                   ),
                 ),
-                // ── Expander: pushes tiles & tabs to the bottom ──
-                const Spacer(),
-                // ── Icon tiles (fixed 60×60) ──
-                SizedBox(
-                  height: 60,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    itemCount: _kTiles.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 8),
-                    itemBuilder: (_, i) {
-                      final tile = _kTiles[i];
-                      return SizedBox(
-                        width: 60,
-                        height: 60,
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            color: tile.color,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Center(
-                            child: Icon(tile.icon, color: Colors.white, size: 28),
-                          ),
-                        ),
-                      );
-                    },
+              ),
+
+              // ── Floating action button (top-right pink circle) ──
+              Positioned(
+                right: 16,
+                bottom: 90,
+                child: Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Colors.pinkAccent, Colors.deepPurple],
+                    ),
+                    borderRadius: BorderRadius.circular(14),
                   ),
+                  child: const Icon(Icons.edit, color: Colors.white, size: 22),
                 ),
-                const SizedBox(height: 6),
-                // ── Tabs ──
-                Row(
-                  children: List.generate(2, (i) {
-                    final sel = i == widget.currentPage;
-                    return Expanded(
-                      child: GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: () => widget.onTabTap(i),
-                        child: Container(
-                          height: 40,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            border: Border(
-                              bottom: BorderSide(
-                                color: sel ? Colors.white : Colors.transparent,
-                                width: 2,
-                              ),
-                            ),
-                          ),
-                          child: Text(
-                            'Tab $i',
-                            style: TextStyle(
-                              color: sel ? Colors.white : Colors.white38,
-                              fontWeight: sel ? FontWeight.bold : FontWeight.normal,
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                  }),
-                ),
-              ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// TAB: Галерея
+// ═══════════════════════════════════════════════════════════════════════════════
+
+class _GalleryPage extends StatelessWidget {
+  const _GalleryPage({required this.controller});
+
+  final ScrollSnapController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return ScrollSnap(
+      controller: controller,
+      slivers: [
+        // ── Section: Личные фото ──
+        _SectionHeader(title: 'Личные фото', onSeeAll: () {}),
+        SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          sliver: SliverGrid(
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              mainAxisSpacing: 6,
+              crossAxisSpacing: 6,
+            ),
+            delegate: SliverChildBuilderDelegate(
+              (context, i) => _PhotoTile(uri: demoUris[i]),
+              childCount: 6,
             ),
           ),
+        ),
+
+        // ── Section: Снепы ──
+        _SectionHeader(title: 'Снепы', onSeeAll: () {}),
+        SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          sliver: SliverGrid(
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              mainAxisSpacing: 6,
+              crossAxisSpacing: 6,
+            ),
+            delegate: SliverChildBuilderDelegate(
+              (context, i) => _PhotoTile(uri: demoUris[i + 6]),
+              childCount: 6,
+            ),
+          ),
+        ),
+
+        // bottom spacing
+        const SliverToBoxAdapter(child: SizedBox(height: 24)),
+      ],
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// TAB: Параметры
+// ═══════════════════════════════════════════════════════════════════════════════
+
+class _ParamsPage extends StatelessWidget {
+  const _ParamsPage({required this.controller});
+
+  final ScrollSnapController controller;
+
+  static const _params = <(String, String)>[
+    ('Рост', '170 см'),
+    ('Вес', '52 кг'),
+    ('Грудь', '2'),
+    ('Обувь', '37'),
+    ('Глаза', 'Карие'),
+    ('Волосы', 'Тёмные'),
+    ('Город', 'Москва'),
+    ('Опыт', '5 лет'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return ScrollSnap(
+      controller: controller,
+      slivers: [
+        SliverList(
+          delegate: SliverChildBuilderDelegate((context, i) {
+            final (label, value) = _params[i];
+            return ListTile(
+              title: Text(label, style: const TextStyle(color: Colors.grey)),
+              trailing: Text(
+                value,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+            );
+          }, childCount: _params.length),
+        ),
+      ],
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// TAB: Отзывы
+// ═══════════════════════════════════════════════════════════════════════════════
+
+class _ReviewsPage extends StatelessWidget {
+  const _ReviewsPage({required this.controller});
+
+  final ScrollSnapController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return ScrollSnap(
+      controller: controller,
+      slivers: [
+        SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (context, i) => ListTile(
+              leading: const CircleAvatar(child: Icon(Icons.person)),
+              title: Text('Отзыв ${i + 1}'),
+              subtitle: const Text('Отличная модель, рекомендую!'),
+            ),
+            childCount: 15,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Section header with "Посмотреть все >"
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({required this.title, required this.onSeeAll});
+
+  final String title;
+  final VoidCallback onSeeAll;
+
+  @override
+  Widget build(BuildContext context) {
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Text(
+              title,
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+            ),
+            const Spacer(),
+            GestureDetector(
+              onTap: onSeeAll,
+              child: const Text(
+                'Посмотреть все >',
+                style: TextStyle(color: Colors.pinkAccent, fontSize: 13),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-// ── Page ──────────────────────────────────────────────────────────────────────
+/// Rounded photo tile loaded from network
+class _PhotoTile extends StatelessWidget {
+  const _PhotoTile({required this.uri});
 
-class _Page extends StatefulWidget {
-  const _Page({required this.controller, required this.color});
+  final String uri;
 
-  final ScrollSnapController controller;
-  final Color color;
-
-  @override
-  State<_Page> createState() => _PageState();
-}
-
-class _PageState extends State<_Page> {
   @override
   Widget build(BuildContext context) {
-    return ScrollSnap(
-      controller: widget.controller,
-      slivers: [
-        SliverSnapList(
-          controller: widget.controller,
-          childCount: 30,
-          builder: (_, i) => SizedBox(
-            height: 60,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              child: ColoredBox(
-                color: widget.color.withValues(alpha: 0.15 + (i % 5) * 0.1),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text('Item $i', style: const TextStyle(color: Colors.white)),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
+    return Container(
+      clipBehavior: Clip.hardEdge,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        color: Colors.grey.shade300,
+      ),
+      child: Image.network(uri, fit: BoxFit.cover),
     );
   }
 }
