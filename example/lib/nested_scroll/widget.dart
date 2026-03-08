@@ -16,6 +16,7 @@ class NestedDemoScreen extends StatefulWidget {
 class _NestedDemoScreenState extends State<NestedDemoScreen> {
   // ── Header / tab controllers ─────────────────────────────────────────────
 
+
   final _headerController = ScrollSnapHeaderController();
 
   Future<void> _onRefresh() async {
