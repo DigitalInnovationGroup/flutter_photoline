@@ -537,18 +537,18 @@ class ScrollSnapPosition extends ViewportOffset with ScrollMetrics implements Sc
             return 0.0;
           }
         } else if (delta < 0 && newPixels < min) {
-          // User is dragging/flinging down below minScrollExtent.
-          if (!holder.refreshing) {
+          // Dragging/flinging down below minScrollExtent.
+          // Only accumulate refreshPull when the user is actively dragging —
+          // never during a ballistic (inertial) phase.
+          final isBallistic = activity is BallisticScrollActivity;
+          if (!holder.refreshing && !isBallistic) {
             // Redirect the excess below min into the refresh pull with
             // rubber-band friction: more pull → less effect.
             final excess = min - newPixels;
-            final friction = (1.0 -
-                    (currentPull / (holder.refreshTriggerExtent * 3.0))
-                        .clamp(0.0, 0.8));
+            final friction = 1.0 - (currentPull / (holder.refreshTriggerExtent * 3.0)).clamp(0.0, 0.8);
             holder.refreshPull.value = currentPull + excess * friction;
           }
-          // During refreshing, completely block any further expansion of the
-          // pull — clamp newPixels to min unconditionally.
+          // Always clamp to min — never let the scroll position go below it.
           newPixels = min;
           if ((newPixels - pixels).abs() < precisionErrorTolerance) {
             return 0.0;
@@ -567,16 +567,13 @@ class ScrollSnapPosition extends ViewportOffset with ScrollMetrics implements Sc
       if (clampedDelta != 0) {
         final double headerThreshold = -holder.minHeight;
         final double headerDelta;
-        if (clampedPixels <= headerThreshold &&
-            clampedNew <= headerThreshold) {
+        if (clampedPixels <= headerThreshold && clampedNew <= headerThreshold) {
           // Fully inside the header expansion zone.
           headerDelta = clampedDelta;
-        } else if (clampedPixels > headerThreshold &&
-            clampedNew <= headerThreshold) {
+        } else if (clampedPixels > headerThreshold && clampedNew <= headerThreshold) {
           // Scrolling up past the content/header boundary.
           headerDelta = clampedNew - headerThreshold;
-        } else if (clampedPixels <= headerThreshold &&
-            clampedNew > headerThreshold) {
+        } else if (clampedPixels <= headerThreshold && clampedNew > headerThreshold) {
           // Scrolling down past the boundary into content.
           headerDelta = -(clampedPixels - headerThreshold);
         } else {
@@ -666,13 +663,9 @@ class ScrollSnapPosition extends ViewportOffset with ScrollMetrics implements Sc
 
     // Allow bouncing underscroll only when using sliver-based refresh
     // (not when header manages the refresh indicator via setPixels).
-    if (controller.onRefresh != null &&
-        value < pp &&
-        pp <= min &&
-        controller.headerHolder == null) {
+    if (controller.onRefresh != null && value < pp && pp <= min && controller.headerHolder == null) {
       return 0.0; // Bouncing underscroll (sliver-based refresh only)
     }
-
 
     late final double result;
 
