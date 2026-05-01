@@ -26,7 +26,9 @@ class _SnapExampleListState extends State<SnapExampleList> {
       return lerpDouble(100 + gap, 200 + gap, d.t);
     },
     snapLastMin: true,
-    onRefresh: () async {},
+    onRefresh: () async {
+      await Future.delayed(const Duration(seconds: 2));
+    },
     rebuild: rebuild,
   );
 
