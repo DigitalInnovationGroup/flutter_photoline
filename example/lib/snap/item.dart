@@ -51,14 +51,15 @@ class _ItemState extends State<_Item> with TickerProviderStateMixin {
           child: Stack(
             children: [
               const Placeholder(),
-              Positioned.fill(
-                  child: NotificationListener<ScrollNotification>(
-                onNotification: (notification) => true,
-                child: SingleChildScrollView(
-                  controller: _controller,
-                  child: const Text(_t),
-                ),
-              ))
+              if (kProfileMode)
+                Positioned.fill(
+                    child: NotificationListener<ScrollNotification>(
+                  onNotification: (notification) => true,
+                  child: SingleChildScrollView(
+                    controller: _controller,
+                    child: const Text(_t),
+                  ),
+                ))
             ],
           ),
         ),

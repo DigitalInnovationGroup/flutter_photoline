@@ -866,35 +866,12 @@ class ScrollSnapPosition extends ViewportOffset with ScrollMetrics implements Sc
 
   @override
   void pointerScroll(double delta) {
-    if (!kProfileMode) return;
-
-    // If an update is made to pointer scrolling here, consider if the same
-    // (or similar) change should be made in
-    // _NestedScrollCoordinator.pointerScroll.
     if (delta == 0.0) {
       goBallistic(0.0);
       return;
     }
-
-    final double targetPixels = math.min(
-      math.max(pixels + delta, minScrollExtent),
-      maxScrollExtent,
-    );
-    if (targetPixels != pixels) {
-      goIdle();
-      updateUserScrollDirection(
-        -delta > 0.0 ? ScrollDirection.forward : ScrollDirection.reverse,
-      );
-      final double oldPixels = pixels;
-      // Set the notifier before calling force pixels.
-      // This is set to false again after going ballistic below.
-      isScrollingNotifier.value = true;
-      forcePixels(targetPixels);
-      didStartScroll();
-      didUpdateScrollPositionBy(pixels - oldPixels);
-      didEndScroll();
-      goBallistic(0.0);
-    }
+    final double velocity = (math.max(delta.abs(), 50) * delta.sign) * 10;
+    goBallistic(velocity);
   }
 
   @override

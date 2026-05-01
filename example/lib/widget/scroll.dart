@@ -3,11 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:photoline/library.dart';
 
 class AppScrollBehavior extends MaterialScrollBehavior {
-  const AppScrollBehavior({
-    this.mouse = true,
-  });
-
-  final bool mouse;
+  const AppScrollBehavior();
 
   @override
   Set<PointerDeviceKind> get dragDevices => {
@@ -15,35 +11,32 @@ class AppScrollBehavior extends MaterialScrollBehavior {
         PointerDeviceKind.stylus,
         PointerDeviceKind.invertedStylus,
         PointerDeviceKind.trackpad,
-        if (mouse) PointerDeviceKind.mouse,
+        PointerDeviceKind.mouse,
         PointerDeviceKind.unknown,
       };
 
   @override
-  Widget buildOverscrollIndicator(
-          BuildContext context, Widget child, ScrollableDetails details) =>
-      child;
+  Widget buildOverscrollIndicator(BuildContext context, Widget child, ScrollableDetails details) => child;
 
   @override
-  Widget buildScrollbar(
-          BuildContext context, Widget child, ScrollableDetails details) =>
-      switch (axisDirectionToAxis(details.direction)) {
+  Widget buildScrollbar(BuildContext context, Widget child, ScrollableDetails details) => switch (axisDirectionToAxis(details.direction)) {
         Axis.horizontal => child,
         Axis.vertical => details.controller is ScrollSnapController
             ? child
             : _Scrollbar(
+                controller: details.controller,
                 child: child,
               )
       };
 
   @override
-  ScrollPhysics getScrollPhysics(BuildContext context) =>
-      const ClampingScrollPhysics(parent: RangeMaintainingScrollPhysics());
+  ScrollPhysics getScrollPhysics(BuildContext context) => const ClampingScrollPhysics(parent: RangeMaintainingScrollPhysics());
 }
 
 class _Scrollbar extends RawScrollbar {
   const _Scrollbar({
     required super.child,
+    super.controller,
   }) : super(
         //fadeDuration: const Duration(milliseconds: 20),
         //timeToFade: const Duration(milliseconds: 20),
@@ -66,7 +59,6 @@ class _ScrollbarExState extends RawScrollbarState<_Scrollbar> {
       ..mainAxisMargin = widget.mainAxisMargin
       ..crossAxisMargin = widget.crossAxisMargin
       ..minLength = widget.minThumbLength
-      ..minOverscrollLength =
-          widget.minOverscrollLength ?? widget.minThumbLength;
+      ..minOverscrollLength = widget.minOverscrollLength ?? widget.minThumbLength;
   }
 }

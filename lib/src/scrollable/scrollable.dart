@@ -18,7 +18,8 @@ class PhotolineScrollable extends Scrollable {
 class ScrollableExState extends ScrollableState {
   void _onPointerSignal(PointerSignalEvent event) {
     if (event is PointerScrollEvent) {
-      if (event.kind != PointerDeviceKind.mouse) return;
+      if (event.kind != PointerDeviceKind.mouse &&
+          event.kind != PointerDeviceKind.trackpad) return;
       final parent = context.findAncestorStateOfType<ScrollableExState>();
       if (isPointerPrevent) {
         isPointerPrevent = false;

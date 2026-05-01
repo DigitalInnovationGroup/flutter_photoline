@@ -46,7 +46,7 @@ class MyApp extends StatelessWidget {
           PhotolinePhotoWidget(),
           SnapExampleList(),
           SnapKeyboard(),
-        ][0],
+        ][3],
       ),
     );
   }
