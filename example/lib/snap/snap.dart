@@ -52,7 +52,6 @@ class _SnapExampleListState extends State<SnapExampleList> {
             return ScrollSnap(
               controller: _controller,
               slivers: [
-                ScrollSnapRefresh(controller: _controller),
                 SliverSnapList(
                   controller: _controller,
                   builder: (context, index) {

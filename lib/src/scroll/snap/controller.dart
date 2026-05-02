@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:photoline/library.dart';
+import 'package:photoline/src/scroll/snap/refresh/mixin.dart';
 import 'package:photoline/src/scroll/snap/snap/position.dart';
 
-class ScrollSnapController extends ScrollController {
+class ScrollSnapController extends ScrollController with ScrollRefreshMixin {
   ScrollSnapController({
     super.initialScrollOffset,
     super.keepScrollOffset,
@@ -21,7 +22,15 @@ class ScrollSnapController extends ScrollController {
     this.snapArea = false,
     this.freeMaxExtend = false,
     this.snapGap = 0,
-  });
+  }) {
+    if (onRefresh != null) canRefresh = true;
+  }
+
+  @override
+  void dispose() {
+    refreshPull.dispose();
+    super.dispose();
+  }
 
   @override
   ScrollPosition createScrollPosition(

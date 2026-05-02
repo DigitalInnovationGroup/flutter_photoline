@@ -114,7 +114,6 @@ class _PhotolineTestWidgetState extends State<PhotolineTestWidget> {
                   controller: _snap,
                   cacheExtent: .1,
                   builder: (rebuilder) => [
-                    ScrollSnapRefresh(controller: _snap),
                     SliverSnapList(
                       controller: _snap,
                       builder: (context, index) => _Child(

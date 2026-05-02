@@ -31,7 +31,6 @@ class _SnapKeyboardState extends State<SnapKeyboard> {
             return ScrollSnap(
               controller: _controller,
               slivers: [
-                ScrollSnapRefresh(controller: _controller),
                 SliverList(
                   delegate: SliverChildListDelegate([
                     SizedBox(

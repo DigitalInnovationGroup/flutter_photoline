@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:photoline/src/scroll/snap/header/controller.dart';
+import 'package:photoline/src/scroll/snap/refresh/painter.dart';
 
 class ScrollSnapHeader extends StatefulWidget {
   const ScrollSnapHeader({
@@ -39,15 +40,10 @@ class _ScrollSnapHeaderState extends State<ScrollSnapHeader>
 
   // ── Refresh state ────────────────────────────────────────────────────────
 
-  /// Whether the pull has passed the trigger threshold.
   bool _armed = false;
-
-  /// Whether we are currently awaiting the onRefresh future.
   bool _refreshing = false;
-
-  /// True while the user is actively dragging on the header and consuming pull
-  /// towards the refresh indicator.
   bool _pullingRefresh = false;
+  bool _isSpinning = false;
 
   late final AnimationController _spinAnim;
 
@@ -70,8 +66,10 @@ class _ScrollSnapHeaderState extends State<ScrollSnapHeader>
 
     _spinAnim = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 800),
-    );
+      duration: const Duration(milliseconds: 1000),
+    )..addListener(() {
+        if (mounted) setState(() {});
+      });
     _collapseAnim = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 300),
@@ -113,10 +111,10 @@ class _ScrollSnapHeaderState extends State<ScrollSnapHeader>
     _armed = pull >= widget.refreshTriggerExtent;
     if (_armed && !wasArmed) {
       unawaited(HapticFeedback.mediumImpact());
+      _startSpin((pull / widget.refreshTriggerExtent) % 1.0);
+    } else if (!_armed && wasArmed && !_refreshing) {
+      _stopSpin();
     }
-    // If something external (e.g. ballistic setPixels) drained refreshPull to
-    // zero while the collapse animation is still running, stop the animation
-    // so its next tick doesn't write a stale non-zero value back.
     if (pull <= 0.0 && _collapseAnim.isAnimating) {
       _collapseAnim.stop();
     }
@@ -124,6 +122,38 @@ class _ScrollSnapHeaderState extends State<ScrollSnapHeader>
       _snapToTriggerAnim.stop();
     }
     setState(() {});
+  }
+
+  void _startSpin(double fromFraction) {
+    if (_isSpinning) return;
+    _isSpinning = true;
+    _spinAnim.value = fromFraction.clamp(0.0, 1.0);
+    unawaited(_spinAnim.repeat());
+  }
+
+  void _stopSpin() {
+    if (!_isSpinning) return;
+    _isSpinning = false;
+    _spinAnim.stop();
+  }
+
+  (double angle, double opacity) _spinnerValues() {
+    final pull = _refreshPull;
+    if (pull <= 0) return (0.0, 0.0);
+
+    final trigger = widget.refreshTriggerExtent;
+
+    if (_isSpinning) {
+      return (_spinAnim.value * 2 * math.pi, (pull / trigger).clamp(0.0, 1.0));
+    }
+
+    const deadZone = 10.0;
+    if (pull <= deadZone) return (0.0, 0.0);
+
+    final fraction =
+        ((pull - deadZone) / (trigger - deadZone)).clamp(0.0, 1.0);
+    final angle = (pull / trigger % 1.0) * 2 * math.pi;
+    return (angle, Curves.easeOut.transform(fraction));
   }
 
   // ── helpers ──────────────────────────────────────────────────────────────
@@ -253,7 +283,7 @@ class _ScrollSnapHeaderState extends State<ScrollSnapHeader>
       setState(() {});
       return;
     }
-    _collapseAnim.forward(from: 0.0);
+    unawaited(_collapseAnim.forward(from: 0.0));
   }
 
   void _onCollapseTick() {
@@ -297,18 +327,16 @@ class _ScrollSnapHeaderState extends State<ScrollSnapHeader>
     final trigger = widget.refreshTriggerExtent;
     if (currentPull > trigger + 0.5) {
       _snapToTriggerFrom = currentPull;
-      _snapToTriggerAnim.forward(from: 0.0);
+      unawaited(_snapToTriggerAnim.forward(from: 0.0));
     } else if (currentPull != trigger) {
       widget.controller.refreshPull.value = trigger;
     }
-
-    unawaited(_spinAnim.repeat());
 
     try {
       await widget.onRefresh!();
     } finally {
       if (mounted) {
-        _spinAnim.stop();
+        _stopSpin();
         _refreshing = false;
         widget.controller.refreshing = false;
         _armed = false;
@@ -320,22 +348,12 @@ class _ScrollSnapHeaderState extends State<ScrollSnapHeader>
   // ── Refresh indicator widget ─────────────────────────────────────────────
 
   Widget _buildRefreshIndicator() {
-    final pull = _refreshPull;
-    final progress =
-        (pull / widget.refreshTriggerExtent).clamp(0.0, 1.0);
-    final opacity = ((pull - 8) / 24).clamp(0.0, 1.0);
-
-    return SizedBox(
-      height: pull,
-      child: Center(
-        child: Opacity(
-          opacity: opacity,
-          child: _RefreshIcon(
-            progress: progress,
-            armed: _armed,
-            refreshing: _refreshing,
-            spinAnimation: _spinAnim,
-          ),
+    final (angle, opacity) = _spinnerValues();
+    return Center(
+      child: SizedBox.square(
+        dimension: 36,
+        child: CustomPaint(
+          painter: ScrollRefreshPainter(angle: angle, opacity: opacity),
         ),
       ),
     );
@@ -565,175 +583,4 @@ class ScrollSnapScrollHeaderRenderBox extends RenderBox
   @override
   void paint(PaintingContext context, Offset offset) =>
       defaultPaint(context, offset);
-}
-
-// ══════════════════════════════════════════════════════════════════════════════
-// Text-free refresh indicator icon
-// ══════════════════════════════════════════════════════════════════════════════
-
-class _RefreshIcon extends StatelessWidget {
-  const _RefreshIcon({
-    required this.progress,
-    required this.armed,
-    required this.refreshing,
-    required this.spinAnimation,
-  });
-
-  /// 0..1 how far the user has pulled towards the trigger threshold.
-  final double progress;
-  final bool armed;
-  final bool refreshing;
-  final Animation<double> spinAnimation;
-
-  @override
-  Widget build(BuildContext context) {
-    const size = 32.0;
-
-    if (refreshing) {
-      return AnimatedBuilder(
-        animation: spinAnimation,
-        builder: (_, __) {
-          return CustomPaint(
-            size: const Size.square(size),
-            painter: _SpinnerPainter(
-              rotation: spinAnimation.value * 2 * math.pi,
-            ),
-          );
-        },
-      );
-    }
-
-    // Scale bounce when armed
-    final scale = armed ? 1.15 : 0.7 + 0.3 * progress;
-
-    return Transform.scale(
-      scale: scale,
-      child: CustomPaint(
-        size: const Size.square(size),
-        painter: _ArrowArcPainter(
-          progress: progress,
-          armed: armed,
-        ),
-      ),
-    );
-  }
-}
-
-/// Draws a circular arc-arrow that grows with [progress].
-/// When [armed] the arrow is complete and highlighted.
-class _ArrowArcPainter extends CustomPainter {
-  _ArrowArcPainter({required this.progress, required this.armed});
-
-  final double progress;
-  final bool armed;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = size.center(Offset.zero);
-    final radius = size.width * 0.38;
-    final strokeWidth = size.width * 0.09;
-
-    final color = armed ? const Color(0xFF4CAF50) : const Color(0xFFACACAC);
-
-    final arcPaint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.round;
-
-    // Background track (faint ring).
-    final trackPaint = Paint()
-      ..color = color.withValues(alpha: 0.15)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth;
-
-    canvas.drawCircle(center, radius, trackPaint);
-
-    // Arc sweep: from top (–π/2), sweep up to 330° based on progress.
-    final sweepAngle = progress * (330 * math.pi / 180);
-    if (sweepAngle > 0.01) {
-      canvas.drawArc(
-        Rect.fromCircle(center: center, radius: radius),
-        -math.pi / 2,
-        sweepAngle,
-        false,
-        arcPaint,
-      );
-    }
-
-    // Arrow head at the end of the arc.
-    if (progress > 0.15) {
-      final endAngle = -math.pi / 2 + sweepAngle;
-      final tipX = center.dx + radius * math.cos(endAngle);
-      final tipY = center.dy + radius * math.sin(endAngle);
-      final tip = Offset(tipX, tipY);
-
-      final arrowLen = size.width * 0.18;
-      final tangent = endAngle + math.pi / 2;
-      final wing1 = Offset(
-        tipX - arrowLen * math.cos(tangent - 0.5),
-        tipY - arrowLen * math.sin(tangent - 0.5),
-      );
-      final wing2 = Offset(
-        tipX - arrowLen * math.cos(tangent + 0.5),
-        tipY - arrowLen * math.sin(tangent + 0.5),
-      );
-
-      final arrowPaint = Paint()
-        ..color = color
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = strokeWidth * 0.85
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round;
-
-      canvas.drawLine(wing1, tip, arrowPaint);
-      canvas.drawLine(wing2, tip, arrowPaint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(_ArrowArcPainter old) =>
-      old.progress != progress || old.armed != armed;
-}
-
-/// Rotating arc spinner for the refreshing state.
-class _SpinnerPainter extends CustomPainter {
-  _SpinnerPainter({required this.rotation});
-
-  final double rotation;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = size.center(Offset.zero);
-    final radius = size.width * 0.38;
-    final strokeWidth = size.width * 0.09;
-
-    // Faint track
-    canvas.drawCircle(
-      center,
-      radius,
-      Paint()
-        ..color = const Color(0x26ACACAC)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = strokeWidth,
-    );
-
-    // Spinning arc (120°)
-    final paint = Paint()
-      ..color = const Color(0xFF4CAF50)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.round;
-
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius),
-      rotation,
-      2 * math.pi / 3,
-      false,
-      paint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_SpinnerPainter old) => old.rotation != rotation;
 }
