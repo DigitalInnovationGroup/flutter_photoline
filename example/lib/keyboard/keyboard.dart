@@ -12,8 +12,8 @@ class SnapKeyboard extends StatefulWidget {
 
 class _SnapKeyboardState extends State<SnapKeyboard> {
   late final ScrollSnapController _controller = ScrollSnapController(
-    onRefresh: () async {},
-    rebuild: rebuild,
+    onReload: () async {},
+    getState: () => this,
   );
 
   void rebuild() => setState(() {});
@@ -40,8 +40,7 @@ class _SnapKeyboardState extends State<SnapKeyboard> {
                           onTap: () async {
                             FocusManager.instance.primaryFocus?.unfocus();
                             if (kDebugMode) {
-                              await SystemChannels.textInput
-                                  .invokeMethod('TextInput.hide');
+                              await SystemChannels.textInput.invokeMethod('TextInput.hide');
                             }
                           },
                           child: const Placeholder()),
@@ -54,8 +53,7 @@ class _SnapKeyboardState extends State<SnapKeyboard> {
                           onTap: () async {
                             FocusManager.instance.primaryFocus?.unfocus();
                             if (kDebugMode) {
-                              await SystemChannels.textInput
-                                  .invokeMethod('TextInput.hide');
+                              await SystemChannels.textInput.invokeMethod('TextInput.hide');
                             }
                           },
                           child: const Placeholder()),
@@ -75,11 +73,7 @@ class _SnapKeyboardState extends State<SnapKeyboard> {
 class _Example extends StatelessWidget {
   const _Example();
 
-  static const List<String> _kOptions = <String>[
-    'aardvark',
-    'bobcat',
-    'chameleon'
-  ];
+  static const List<String> _kOptions = <String>['aardvark', 'bobcat', 'chameleon'];
 
   @override
   Widget build(BuildContext context) {

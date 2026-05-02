@@ -96,7 +96,11 @@ abstract class PhotolineLoader {
 
   ui.Image? get image => _data.image;
 
-  double opacity = 0;
+  double _opacity = -1;
+
+  double get opacity => _opacity < 0 ? (_opacity = image != null ? 1.0 : 0.0) : _opacity;
+
+  set opacity(double value) => _opacity = value;
 
   bool get imageLoaded => _data.image != null;
 

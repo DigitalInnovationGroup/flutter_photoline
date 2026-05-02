@@ -34,8 +34,7 @@ class ScrollSnapHeader extends StatefulWidget {
   State<ScrollSnapHeader> createState() => _ScrollSnapHeaderState();
 }
 
-class _ScrollSnapHeaderState extends State<ScrollSnapHeader>
-    with TickerProviderStateMixin {
+class _ScrollSnapHeaderState extends State<ScrollSnapHeader> with TickerProviderStateMixin {
   Drag? _drag;
 
   // ── Refresh state ────────────────────────────────────────────────────────
@@ -51,7 +50,7 @@ class _ScrollSnapHeaderState extends State<ScrollSnapHeader>
   /// released without arming.
   late final AnimationController _collapseAnim;
 
-  /// Smoothly brings refreshPull down to [refreshTriggerExtent] after the
+  /// Smoothly brings refreshPull down to refreshTriggerExtent] after the
   /// user over-pulled before release (avoids the instant jump to triggerExtent).
   late final AnimationController _snapToTriggerAnim;
   double _snapToTriggerFrom = 0.0;
@@ -59,17 +58,18 @@ class _ScrollSnapHeaderState extends State<ScrollSnapHeader>
   @override
   void initState() {
     super.initState();
-    final hc = widget.controller;
-    hc.canRefresh = widget.onRefresh != null;
-    hc.refreshTriggerExtent = widget.refreshTriggerExtent;
+    final hc = widget.controller
+      ..canRefresh = widget.onRefresh != null
+      ..refreshTriggerExtent = widget.refreshTriggerExtent;
     hc.refreshPull.addListener(_onRefreshPullChanged);
 
-    _spinAnim = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1000),
-    )..addListener(() {
-        if (mounted) setState(() {});
-      });
+    _spinAnim =
+        AnimationController(
+          vsync: this,
+          duration: const Duration(milliseconds: 1000),
+        )..addListener(() {
+          if (mounted) setState(() {});
+        });
     _collapseAnim = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 300),
@@ -91,10 +91,12 @@ class _ScrollSnapHeaderState extends State<ScrollSnapHeader>
   @override
   void dispose() {
     widget.controller.refreshPull.removeListener(_onRefreshPullChanged);
-    _collapseAnim.removeListener(_onCollapseTick);
-    _collapseAnim.dispose();
-    _snapToTriggerAnim.removeListener(_onSnapToTriggerTick);
-    _snapToTriggerAnim.dispose();
+    _collapseAnim
+      ..removeListener(_onCollapseTick)
+      ..dispose();
+    _snapToTriggerAnim
+      ..removeListener(_onSnapToTriggerTick)
+      ..dispose();
     _spinAnim.dispose();
     super.dispose();
   }
@@ -150,8 +152,7 @@ class _ScrollSnapHeaderState extends State<ScrollSnapHeader>
     const deadZone = 10.0;
     if (pull <= deadZone) return (0.0, 0.0);
 
-    final fraction =
-        ((pull - deadZone) / (trigger - deadZone)).clamp(0.0, 1.0);
+    final fraction = ((pull - deadZone) / (trigger - deadZone)).clamp(0.0, 1.0);
     final angle = (pull / trigger % 1.0) * 2 * math.pi;
     return (angle, Curves.easeOut.transform(fraction));
   }
@@ -212,13 +213,9 @@ class _ScrollSnapHeaderState extends State<ScrollSnapHeader>
       // Feed the refresh pull directly through the header controller.
       final hc = widget.controller;
       final currentPull = hc.refreshPull.value;
-      final double friction =
-          (1.0 -
-              (currentPull / (widget.refreshTriggerExtent * 3.0))
-                  .clamp(0.0, 0.8));
+      final double friction = 1.0 - (currentPull / (widget.refreshTriggerExtent * 3.0)).clamp(0.0, 0.8);
       final double consumed = dy * friction;
-      final double newPull =
-          (currentPull + consumed).clamp(0.0, double.infinity);
+      final double newPull = (currentPull + consumed).clamp(0.0, double.infinity);
 
       hc.refreshPull.value = newPull;
 
@@ -405,8 +402,7 @@ class _ScrollSnapHeaderState extends State<ScrollSnapHeader>
         onVerticalDragCancel: _onVerticalDragCancel,
         child: widget.header,
       ),
-      refreshIndicator:
-          _canRefresh && pull > 0 ? _buildRefreshIndicator() : null,
+      refreshIndicator: _canRefresh && pull > 0 ? _buildRefreshIndicator() : null,
       content: _canRefresh
           ? NotificationListener<ScrollNotification>(
               onNotification: _onScrollNotification,
@@ -427,11 +423,13 @@ class ScrollSnapHeaderMultiChild extends MultiChildRenderObjectWidget {
     required this.controller,
     this.refreshIndicator,
     this.refreshPull = 0.0,
-  }) : super(children: [
-          content,
-          if (refreshIndicator != null) refreshIndicator,
-          header,
-        ]);
+  }) : super(
+         children: [
+           content,
+           ?refreshIndicator,
+           header,
+         ],
+       );
 
   final Widget header;
   final Widget content;
@@ -440,23 +438,18 @@ class ScrollSnapHeaderMultiChild extends MultiChildRenderObjectWidget {
   final double refreshPull;
 
   @override
-  ScrollSnapScrollHeaderRenderBox createRenderObject(BuildContext context) =>
-      ScrollSnapScrollHeaderRenderBox(
-        controller: controller,
-        refreshPull: refreshPull,
-      );
+  ScrollSnapScrollHeaderRenderBox createRenderObject(BuildContext context) => ScrollSnapScrollHeaderRenderBox(
+    controller: controller,
+    refreshPull: refreshPull,
+  );
 
   @override
-  void updateRenderObject(
-      BuildContext context, ScrollSnapScrollHeaderRenderBox renderObject) {
+  void updateRenderObject(BuildContext context, ScrollSnapScrollHeaderRenderBox renderObject) {
     renderObject.refreshPull = refreshPull;
   }
 }
 
-class ScrollSnapScrollHeaderRenderBox extends RenderBox
-    with
-        ContainerRenderObjectMixin<RenderBox, MultiChildLayoutParentData>,
-        RenderBoxContainerDefaultsMixin<RenderBox, MultiChildLayoutParentData> {
+class ScrollSnapScrollHeaderRenderBox extends RenderBox with ContainerRenderObjectMixin<RenderBox, MultiChildLayoutParentData>, RenderBoxContainerDefaultsMixin<RenderBox, MultiChildLayoutParentData> {
   ScrollSnapScrollHeaderRenderBox({
     required this.controller,
     double refreshPull = 0.0,
@@ -493,8 +486,7 @@ class ScrollSnapScrollHeaderRenderBox extends RenderBox
 
   /// The optional refresh indicator is between content and header.
   RenderBox? get _refreshBox {
-    final next =
-        (_contentBox.parentData! as MultiChildLayoutParentData).nextSibling;
+    final next = (_contentBox.parentData! as MultiChildLayoutParentData).nextSibling;
     return next == _headerBox ? null : next;
   }
 
@@ -531,17 +523,14 @@ class ScrollSnapScrollHeaderRenderBox extends RenderBox
     size = Size(width, height);
 
     // Content is pushed down by the refresh pull amount.
-    (_contentBox.parentData! as MultiChildLayoutParentData).offset =
-        Offset(0, _refreshPull);
+    (_contentBox.parentData! as MultiChildLayoutParentData).offset = Offset(0, _refreshPull);
 
     // Header is on top.
-    (_headerBox.parentData! as MultiChildLayoutParentData).offset =
-        Offset.zero;
+    (_headerBox.parentData! as MultiChildLayoutParentData).offset = Offset.zero;
 
     // Refresh indicator sits right below the header.
     if (refreshBox != null) {
-      (refreshBox.parentData! as MultiChildLayoutParentData).offset =
-          Offset(0, _headerBox.size.height);
+      (refreshBox.parentData! as MultiChildLayoutParentData).offset = Offset(0, _headerBox.size.height);
     }
   }
 
@@ -554,33 +543,26 @@ class ScrollSnapScrollHeaderRenderBox extends RenderBox
   }
 
   @override
-  double computeMinIntrinsicWidth(double height) =>
-      _contentBox.getMinIntrinsicWidth(height);
+  double computeMinIntrinsicWidth(double height) => _contentBox.getMinIntrinsicWidth(height);
 
   @override
-  double computeMaxIntrinsicWidth(double height) =>
-      _contentBox.getMaxIntrinsicWidth(height);
+  double computeMaxIntrinsicWidth(double height) => _contentBox.getMaxIntrinsicWidth(height);
 
   @override
-  double computeMinIntrinsicHeight(double width) =>
-      _contentBox.getMinIntrinsicHeight(width);
+  double computeMinIntrinsicHeight(double width) => _contentBox.getMinIntrinsicHeight(width);
 
   @override
-  double computeMaxIntrinsicHeight(double width) =>
-      _contentBox.getMaxIntrinsicHeight(width);
+  double computeMaxIntrinsicHeight(double width) => _contentBox.getMaxIntrinsicHeight(width);
 
   @override
-  double? computeDistanceToActualBaseline(TextBaseline baseline) =>
-      defaultComputeDistanceToHighestActualBaseline(baseline);
+  double? computeDistanceToActualBaseline(TextBaseline baseline) => defaultComputeDistanceToHighestActualBaseline(baseline);
 
   @override
-  bool hitTestChildren(HitTestResult result, {required Offset position}) =>
-      defaultHitTestChildren(result as BoxHitTestResult, position: position);
+  bool hitTestChildren(HitTestResult result, {required Offset position}) => defaultHitTestChildren(result as BoxHitTestResult, position: position);
 
   @override
   bool get isRepaintBoundary => true;
 
   @override
-  void paint(PaintingContext context, Offset offset) =>
-      defaultPaint(context, offset);
+  void paint(PaintingContext context, Offset offset) => defaultPaint(context, offset);
 }

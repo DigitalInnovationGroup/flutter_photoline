@@ -65,7 +65,7 @@ class _PhotolineTestWidgetState extends State<PhotolineTestWidget> {
     snapLastMax: true,
     snapGap: 20,
     snapArea: true,
-    onRefresh: () async {
+    onReload: () async {
       await Future.delayed(const Duration(milliseconds: 500));
     },
     snapCan: (index, dimensions) {

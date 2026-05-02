@@ -27,17 +27,17 @@ class _NestedDemoScreenState extends State<NestedDemoScreen> {
 
   late final ScrollSnapController _galleryController = ScrollSnapController(
     headerHolder: _headerController,
-    onRefresh: _onRefresh,
+    onReload: _onRefresh,
   );
 
   late final ScrollSnapController _paramsController = ScrollSnapController(
     headerHolder: _headerController,
-    onRefresh: _onRefresh,
+    onReload: _onRefresh,
   );
 
   late final ScrollSnapController _reviewsController = ScrollSnapController(
     headerHolder: _headerController,
-    onRefresh: _onRefresh,
+    onReload: _onRefresh,
   );
 
   late final List<ScrollSnapController> _controllers = [
@@ -82,7 +82,7 @@ class _NestedDemoScreenState extends State<NestedDemoScreen> {
   Widget build(BuildContext context) {
     return ScrollSnapHeader(
       controller: _headerController,
-      onRefresh: _activeController.onRefresh,
+      onRefresh: _activeController.onReload,
       header: _ProfileHeader(
         controller: _headerController,
         currentPage: _currentPage,

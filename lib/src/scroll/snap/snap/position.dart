@@ -511,7 +511,7 @@ class ScrollSnapPosition extends ViewportOffset with ScrollMetrics implements Sc
       final min = minScrollExtent;
 
       // ── Unified refresh pull handling (header or standalone snap) ─────────
-      final ScrollRefreshMixin? rh = controller.headerHolder ?? (controller.onRefresh != null ? controller : null);
+      final ScrollRefreshMixin? rh = controller.headerHolder ?? (controller.onReload != null ? controller : null);
       if (rh != null && rh.canRefresh) {
         final currentPull = rh.refreshPull.value;
         if (currentPull > 0 && delta > 0) {

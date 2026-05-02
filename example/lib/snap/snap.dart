@@ -26,10 +26,10 @@ class _SnapExampleListState extends State<SnapExampleList> {
       return lerpDouble(100 + gap, 200 + gap, d.t);
     },
     snapLastMin: true,
-    onRefresh: () async {
+    onReload: () async {
       await Future.delayed(const Duration(seconds: 2));
     },
-    rebuild: rebuild,
+    getState: () => this,
   );
 
   void rebuild() => setState(() {});
@@ -58,11 +58,7 @@ class _SnapExampleListState extends State<SnapExampleList> {
                     final k = ValueKey<int>(Object.hash(index, true));
                     return AutomaticKeepAlive(
                       key: k,
-                      child: _Item(
-                          index: index,
-                          data: _datas[index],
-                          parent: _controller,
-                          key: k),
+                      child: _Item(index: index, data: _datas[index], parent: _controller, key: k),
                     );
                   },
                   childCount: _datas.length,

@@ -38,7 +38,7 @@ class ScrollSnapState extends State<ScrollSnap>
   Timer? _timer;
 
   // --- Refresh ---
-  bool get _hasRefresh => controller.onRefresh != null;
+  bool get _hasRefresh => controller.onReload != null;
 
   bool _isRefreshing = false;
   bool _isClosing = false;
@@ -133,7 +133,7 @@ class ScrollSnapState extends State<ScrollSnap>
 
     rebuild();
 
-    await controller.onRefresh!();
+    await controller.onReload!();
     if (!mounted) return;
 
     _isRefreshing = false;

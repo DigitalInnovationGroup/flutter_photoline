@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:photoline/library.dart';
-import 'package:photoline/src/scroll/snap/refresh/mixin.dart';
 import 'package:photoline/src/scroll/snap/snap/position.dart';
+
+State? _getState() => null;
 
 class ScrollSnapController extends ScrollController with ScrollRefreshMixin {
   ScrollSnapController({
@@ -11,11 +12,11 @@ class ScrollSnapController extends ScrollController with ScrollRefreshMixin {
     super.debugLabel,
     super.onAttach,
     super.onDetach,
-    this.rebuild,
+    this.getState = _getState,
     this.snapLastMax = false,
     this.snapLastMin = false,
     this.headerHolder,
-    this.onRefresh,
+    this.onReload,
     this.snapCan,
     this.snapBuilder,
     this.snapTop = true,
@@ -23,8 +24,10 @@ class ScrollSnapController extends ScrollController with ScrollRefreshMixin {
     this.freeMaxExtend = false,
     this.snapGap = 0,
   }) {
-    if (onRefresh != null) canRefresh = true;
+    if (onReload != null) canRefresh = true;
   }
+
+  final State? Function() getState;
 
   @override
   void dispose() {
@@ -67,8 +70,7 @@ class ScrollSnapController extends ScrollController with ScrollRefreshMixin {
   final ItemExtentBuilder? snapBuilder;
   final bool? Function(int index, SliverLayoutDimensions dimensions)? snapCan;
 
-  final void Function()? rebuild;
-  final RefreshCallback? onRefresh;
+  final RefreshCallback? onReload;
   final isUserDrag = ValueNotifier<bool>(false);
 
   final ScrollSnapHeaderController? headerHolder;
@@ -77,7 +79,6 @@ class ScrollSnapController extends ScrollController with ScrollRefreshMixin {
 
   @override
   ScrollSnapPosition get position => super.position as ScrollSnapPosition;
-
 
   double keyboardOverlap = 0;
 }
