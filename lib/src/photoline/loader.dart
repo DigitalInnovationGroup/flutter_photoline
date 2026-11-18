@@ -26,11 +26,12 @@ final Queue<_PhotolineLoaderQueueItem> _decodeQueue = Queue();
 int _decodeCount = 0;
 
 class _PhotolineLoaderQueueItem {
-  _PhotolineLoaderQueueItem(this.uri, this.data, this.headers);
+  _PhotolineLoaderQueueItem(this.uri, this.data, this.headers, this.body);
 
   final String uri;
   final _PhotolineLoaderData data;
   final Map<String, String>? headers;
+  final Uint8List? body;
 }
 
 class PhotolineLoaderNotifier extends ChangeNotifier {
@@ -80,6 +81,8 @@ abstract class PhotolineLoader {
   String? get uri;
 
   Map<String, String>? get headers => null;
+
+  Uint8List? body() => null;
 
   ui.Image? blur;
 
@@ -140,7 +143,7 @@ abstract class PhotolineLoader {
     final data = existing ?? _PhotolineLoaderData()
       ..queued = true;
     _map[u] = data;
-    _downloadQueue.add(_PhotolineLoaderQueueItem(u, data, headers));
+    _downloadQueue.add(_PhotolineLoaderQueueItem(u, data, headers, body()));
     _processDownloadQueue();
   }
 
@@ -161,7 +164,7 @@ abstract class PhotolineLoader {
     }
 
     try {
-      data.bytes = await _getBytes(item.uri, item.headers);
+      data.bytes = await _getBytes(item.uri, item.headers, item.body);
     } catch (e) {
       if (kDebugMode) {
         print('⚠️PhotolineLoader download(${item.uri}): $e');
@@ -224,16 +227,26 @@ abstract class PhotolineLoader {
   }
 }
 
-Future<Uint8List?> _getBytes(String uri, Map<String, String>? headers) async {
+Future<Uint8List?> _getBytes(String uri, Map<String, String>? headers, Uint8List? body) async {
   http.Response? response;
 
   try {
-    response = await http
-        .get(Uri.parse(uri), headers: headers)
-        .timeout(
-          const Duration(seconds: 10),
-          onTimeout: () => http.Response('Error', 408),
-        );
+    final parsed = Uri.parse(uri);
+    if (body != null) {
+      response = await http
+          .post(parsed, headers: headers, body: body)
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () => http.Response('Error', 408),
+          );
+    } else {
+      response = await http
+          .get(parsed, headers: headers)
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () => http.Response('Error', 408),
+          );
+    }
   } catch (e) {
     if (kDebugMode) {
       print('⚠️PhotolineLoader: $e');
